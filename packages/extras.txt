@@ -1,0 +1,11 @@
+calibre
+drawio-desktop
+github-copilot-cli
+grok-bot
+pocket-casts-linux
+proton-vpn-cli
+rclone
+tailscale
+telegram-desktop
+voxtype-bin
+zed

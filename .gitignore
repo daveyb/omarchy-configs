@@ -1,0 +1,10 @@
+.audit/
+*.bak
+user_credentials.json
+tailscale_authkey
+**/*id_rsa
+**/*id_ed25519
+**/*.pem
+**/*.key
+.env
+.env.*
