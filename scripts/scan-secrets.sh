@@ -11,7 +11,7 @@ else
 	mapfile -t files < <(find . -type f ! -path './.git/*' ! -path './.audit/*')
 fi
 
-forbidden_names=(user_credentials.json tailscale_authkey id_rsa id_ed25519)
+forbidden_names=(user_credentials.json user_configuration.json tailscale_authkey id_rsa id_ed25519)
 for name in "${forbidden_names[@]}"; do
 	mapfile -t hits < <(find . -name "$name" ! -path './.git/*')
 	if ((${#hits[@]})); then

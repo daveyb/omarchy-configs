@@ -1,6 +1,7 @@
 .audit/
 *.bak
 user_credentials.json
+user_configuration.json
 tailscale_authkey
 **/*id_rsa
 **/*id_ed25519
