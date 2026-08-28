@@ -37,6 +37,7 @@ cp hypr/input.lua ~/.config/hypr/input.lua
 cp hypr/monitors.lua ~/.config/hypr/monitors.lua
 cp hypr/autostart.lua ~/.config/hypr/autostart.lua
 install -D hypr/scripts/xreal-laptop.sh ~/.config/hypr/scripts/xreal-laptop.sh
+install -D hypr/scripts/studio-display-scale.sh ~/.config/hypr/scripts/studio-display-scale.sh
 cp omarchy/shell.json ~/.config/omarchy/shell.json
 install -D omarchy/defaults/agent ~/.config/omarchy/defaults/agent
 cp xcompose/XCompose ~/.XCompose
@@ -48,7 +49,7 @@ Clone the plugins named in `omarchy/plugins.txt` with `omarchy plugin clone`. In
 
 - Caps Lock is a normal toggle on external keyboards. The laptop key stays Compose.
 - Keyboard repeat is 25/400. Touchpad scroll factor is 0.5.
-- Monitors: laptop at 3.2x, Apple Studio Display at 3.2x, HP E243 above the laptop, XREAL One Pro at 1.6x with the laptop panel off while the glasses are connected.
+- Monitors: laptop at 1.25x, Apple Studio Display at 3.2x. Unplug restores 1.25x on the remaining display. HP E243 sits above the laptop. XREAL One Pro is 1.6x with the laptop panel off while the glasses are connected.
 - Bar: 12-hour clock, Tailscale, Grokbar, OmaProton VPN.
 - Default agent is `grok`.
 - Extra packages: Calibre, draw.io, GitHub Copilot CLI, grok-bot, Pocket Casts, Proton VPN CLI, rclone, Tailscale, Telegram, voxtype, Zed.
