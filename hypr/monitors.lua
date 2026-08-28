@@ -13,8 +13,8 @@ local function xreal_connected()
 end
 
 -- Laptop default. XREAL glasses use 1.6 below (same preset as the Omarchy scale selector).
-local omarchy_gdk_scale = 3
-local omarchy_monitor_scale = 3.2
+local omarchy_gdk_scale = 1
+local omarchy_monitor_scale = 1.25
 
 hl.env("GDK_SCALE", xreal_connected() and "2" or tostring(omarchy_gdk_scale))
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy_monitor_scale })
@@ -53,15 +53,19 @@ hl.monitor({
 -- ~/.config/hypr/scripts/xreal-laptop.sh owns the toggle; these events just
 -- wake it so we don't wait for the next poll.
 local xreal_laptop = os.getenv("HOME") .. "/.config/hypr/scripts/xreal-laptop.sh --once"
+local studio_scale = os.getenv("HOME") .. "/.config/hypr/scripts/studio-display-scale.sh --once"
 
 hl.on("monitor.added", function()
   hl.exec_cmd(xreal_laptop)
+  hl.exec_cmd(studio_scale)
 end)
 hl.on("monitor.removed", function()
   hl.exec_cmd(xreal_laptop)
+  hl.exec_cmd(studio_scale)
 end)
 hl.on("hyprland.start", function()
   hl.exec_cmd(xreal_laptop)
+  hl.exec_cmd(studio_scale)
 end)
 
 -- Configure a specific monitor.
