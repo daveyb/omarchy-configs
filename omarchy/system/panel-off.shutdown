@@ -1,0 +1,11 @@
+#!/bin/sh
+# Cut the panel late in systemd-shutdown so a hung poweroff cannot leave
+# the screen on with the lid shut.
+for b in /sys/class/backlight/*/brightness; do
+  [ -e "$b" ] || continue
+  echo 0 >"$b" 2>/dev/null || true
+done
+for b in /sys/class/backlight/*/bl_power; do
+  [ -e "$b" ] || continue
+  echo 4 >"$b" 2>/dev/null || true
+done

@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep the laptop panel off while the lid is closed
+After=systemd-backlight@backlight:intel_backlight.service
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/omarchy-lid-panel-off
+
+[Install]
+WantedBy=sysinit.target
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

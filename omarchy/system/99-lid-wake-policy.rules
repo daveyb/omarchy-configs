@@ -1,0 +1,5 @@
+# Recompute ACPI/USB wake sources when a display or Thunderbolt link changes.
+ACTION=="change", SUBSYSTEM=="drm", TAG+="systemd", ENV{SYSTEMD_WANTS}="lid-wake-policy.service"
+ACTION=="add", SUBSYSTEM=="thunderbolt", TAG+="systemd", ENV{SYSTEMD_WANTS}="lid-wake-policy.service"
+ACTION=="remove", SUBSYSTEM=="thunderbolt", TAG+="systemd", ENV{SYSTEMD_WANTS}="lid-wake-policy.service"
+ACTION=="change", SUBSYSTEM=="power_supply", TAG+="systemd", ENV{SYSTEMD_WANTS}="lid-wake-policy.service"

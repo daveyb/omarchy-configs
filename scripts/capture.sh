@@ -19,10 +19,34 @@ copy_file() {
 copy_file "$HOME_HYPR/input.lua" "$ROOT/hypr/input.lua"
 copy_file "$HOME_HYPR/monitors.lua" "$ROOT/hypr/monitors.lua"
 copy_file "$HOME_HYPR/autostart.lua" "$ROOT/hypr/autostart.lua"
+copy_file "$HOME_HYPR/bindings.lua" "$ROOT/hypr/bindings.lua"
 copy_file "$HOME_HYPR/scripts/xreal-laptop.sh" "$ROOT/hypr/scripts/xreal-laptop.sh"
 copy_file "$HOME_HYPR/scripts/studio-display-scale.sh" "$ROOT/hypr/scripts/studio-display-scale.sh"
+copy_file "$HOME_HYPR/scripts/lid-close.sh" "$ROOT/hypr/scripts/lid-close.sh"
+copy_file "$HOME_HYPR/scripts/lid-sleep-guard.sh" "$ROOT/hypr/scripts/lid-sleep-guard.sh"
+copy_file "${HOME}/.config/systemd/user/lid-sleep-guard.service" "$ROOT/systemd/user/lid-sleep-guard.service"
 copy_file "$HOME_OMARCHY/shell.json" "$ROOT/omarchy/shell.json"
 copy_file "$HOME_OMARCHY/defaults/agent" "$ROOT/omarchy/defaults/agent"
+
+# Lid, hibernate, wakeup, and shutdown-safety drop-ins. Skip backups.
+if [[ ! -d $HOME_OMARCHY/system ]]; then
+	echo "missing $HOME_OMARCHY/system" >&2
+	exit 1
+fi
+shopt -s nullglob
+copied_system=0
+for src in "$HOME_OMARCHY/system"/*; do
+	[[ -f $src ]] || continue
+	base=$(basename "$src")
+	[[ $base == *.bak* ]] && continue
+	copy_file "$src" "$ROOT/omarchy/system/$base"
+	copied_system=1
+done
+if ((copied_system == 0)); then
+	echo "missing drop-ins in $HOME_OMARCHY/system" >&2
+	exit 1
+fi
+
 copy_file "${HOME}/.XCompose" "$ROOT/xcompose/XCompose"
 
 mkdir -p "$ROOT/git"

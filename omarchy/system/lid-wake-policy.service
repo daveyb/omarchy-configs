@@ -1,0 +1,11 @@
+[Unit]
+Description=Restrict USB/Thunderbolt wake unless an external display is present
+After=multi-user.target
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/omarchy-lid-wake-policy
+
+[Install]
+WantedBy=multi-user.target hibernate.target suspend.target suspend-then-hibernate.target

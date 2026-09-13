@@ -1,0 +1,13 @@
+[Unit]
+Description=Hibernate when the lid stays closed with no external display
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/hypr/scripts/lid-sleep-guard.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
