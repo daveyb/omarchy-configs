@@ -62,7 +62,16 @@ sudo ~/.config/omarchy/system/install-shutdown-safety.sh ~/.config/omarchy/syste
 
 `install-studio-display-wakeup.sh` is the narrower re-apply for the logind/sleep drop-ins and display udev rules only.
 
-Clone the plugins named in `omarchy/plugins.txt` with `omarchy plugin clone`. Install extras with `omarchy pkg add` and `omarchy pkg aur add` as needed. Reload Hyprland with `hyprctl reload`.
+Add the third-party plugins named in `omarchy/plugins.txt`, then copy `omarchy/shell.json` so the bar matches:
+
+```
+omarchy plugin add https://github.com/davefano/omarchy-trackpad-plus.git --enable
+omarchy plugin add https://github.com/nixfred/blip.git --enable
+omarchy plugin add https://github.com/grichard99/omaproton-vpn --enable
+omarchy plugin add https://github.com/rlimberger/grokbar-omarchy.git --enable
+```
+
+Blip still needs `blip-setup` on this host (Mac SSH and `~/.config/blip/bridge.conf`). That stays off this tree. Install extras with `omarchy pkg add` and `omarchy pkg aur add` as needed. Reload Hyprland with `hyprctl reload`.
 
 ## What changed on this host
 
@@ -71,6 +80,6 @@ Clone the plugins named in `omarchy/plugins.txt` with `omarchy plugin clone`. In
 - Monitors: laptop at 1.25x, Apple Studio Display at 3.2x. Unplug restores 1.25x on the remaining display. HP E243 sits above the laptop. XREAL One Pro is 1.6x with the laptop panel off while the glasses are connected.
 - Lid close hibernates on battery and on AC unless an external display is connected. This XPS only has s2idle, which still draws about 2W in a bag. Clamshell on the Studio Display stays awake via docked-ignore plus a userspace lid-switch inhibitor. AC is not treated as docked.
 - Closed lid blanks the laptop panel (session, systemd-sleep, Plymouth/LUKS). Initramfs powers off if the lid stays shut 10s at the passphrase prompt. USB/Thunderbolt S4 wake is off unless a display is actually plugged in. The Alienware keyboard on the Studio Display hub can wake when that display is present.
-- Bar: 12-hour clock, Tailscale, Grokbar, OmaProton VPN.
+- Bar: 12-hour clock, Trackpad Plus, Blip, Tailscale, Grokbar, OmaProton VPN. Trackpad Plus owns the 4-finger workspace swipe in `hypr/input.lua`.
 - Default agent is `grok`.
 - Extra packages: Calibre, draw.io, GitHub Copilot CLI, grok-bot, Pocket Casts, Proton VPN CLI, rclone, Tailscale, Telegram, voxtype, Zed.
