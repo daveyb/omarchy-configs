@@ -50,8 +50,10 @@ for usb in /sys/bus/usb/devices/*; do
   [[ -e $usb/idVendor && -e $usb/power/wakeup ]] || continue
   vendor=$(<"$usb/idVendor")
   product=$(<"$usb/idProduct" 2>/dev/null || true)
+  # Match 98-studio-display-wakeup.rules. Leave Linux root hubs (1d6b)
+  # disabled so a USB-C jostle cannot wake S4 into LUKS.
   case "$vendor" in
-    05ac|05e3|046d|1d6b) apply_sysfs "$usb/power/wakeup" enabled ;;
+    05ac|05e3|046d) apply_sysfs "$usb/power/wakeup" enabled ;;
     04f2) [[ $product == 1830 ]] && apply_sysfs "$usb/power/wakeup" enabled ;;
   esac
 done
