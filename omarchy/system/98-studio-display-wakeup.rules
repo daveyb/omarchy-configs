@@ -1,0 +1,24 @@
+# Keep the Apple Studio Display USB/Thunderbolt path able to wake the
+# laptop. The Alienware keyboard hangs off the display's Titan Ridge
+# hub; if that controller goes D3cold or the hubs have wakeup disabled,
+# a keypress cannot resume s2idle.
+
+# Display-side Thunderbolt 3 USB controller (JHL7440) and bridges.
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x15f0", ATTR{d3cold_allowed}="0", ATTR{power/control}="on", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x15ef", ATTR{d3cold_allowed}="0", ATTR{power/wakeup}="enabled"
+
+# Host Thunderbolt 4 root ports, USB controller, and NHI.
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x9a23", ATTR{d3cold_allowed}="0", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x9a25", ATTR{d3cold_allowed}="0", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x9a13", ATTR{d3cold_allowed}="0", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x9a1b", ATTR{d3cold_allowed}="0", ATTR{power/wakeup}="enabled"
+
+# Studio Display Thunderbolt node: do not runtime-suspend the link.
+ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{device_name}=="Studio Display", TEST=="power/control", ATTR{power/control}="on"
+
+# USB hubs and HID on the display. Do not enable Linux root-hub wakeup
+# (idVendor 1d6b): that lets any USB-C jostle in a bag wake S4 into LUKS.
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="05ac", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="05e3", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="04f2", ATTR{idProduct}=="1830", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="046d", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"

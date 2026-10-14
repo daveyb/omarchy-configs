@@ -1,0 +1,4 @@
+# Blank the laptop panel the moment the lid switch changes to closed, and
+# restore when it opens. Covers Plymouth/LUKS in the initramfs (rule is
+# copied into the image) and systemd-backlight restoring brightness on resume.
+ACTION=="change", SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_SWITCH}=="1", RUN+="/usr/local/libexec/omarchy-lid-panel-off"

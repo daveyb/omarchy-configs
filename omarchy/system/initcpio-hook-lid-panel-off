@@ -1,0 +1,8 @@
+#!/usr/bin/ash
+# Initramfs: keep the panel off while the lid is shut, and power off if
+# it stays shut (S4 wake in a bag must not sit at the LUKS prompt).
+
+run_hook() {
+  /usr/local/libexec/omarchy-lid-panel-off
+  /usr/local/libexec/omarchy-lid-panel-off --watch &
+}

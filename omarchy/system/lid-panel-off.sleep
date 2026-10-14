@@ -1,0 +1,11 @@
+#!/bin/sh
+# systemd-sleep: $1=pre|post  $2=suspend|hibernate|...
+# Blank before sleep/hibernate so the s2idle-to-hibernate wake cannot light
+# a closed lid. On resume, restore only if the lid is open.
+helper=/usr/local/libexec/omarchy-lid-panel-off
+[ -x "$helper" ] || exit 0
+
+case $1 in
+  pre)  "$helper" --force ;;
+  post) "$helper" ;;
+esac

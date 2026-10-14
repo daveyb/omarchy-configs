@@ -1,0 +1,16 @@
+#!/bin/bash
+
+build() {
+  add_file /usr/local/libexec/omarchy-lid-panel-off
+  add_udev_rule 99-lid-panel-off.rules
+  add_runscript
+}
+
+help() {
+  cat <<HELPEOF
+Blank the laptop backlight while the lid is closed so the LUKS/Plymouth
+passphrase prompt cannot light a shut lid. If the lid stays closed for
+10s in the initramfs (hibernate wake in a bag), power off. The
+hibernation image is left on disk for the next intentional power-on.
+HELPEOF
+}
