@@ -5,6 +5,18 @@ All notable changes to this overlay tree are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.1] - 2026-09-20
+
+### Added
+
+- Third-party bar plugins installed on 2026-09-19: Trackpad Plus
+  (`davefano.trackpad-plus`) and Blip (`nixfred.blip`). Both sit on the right
+  of the bar after the tray. Trackpad Plus's 4-finger workspace swipe is in
+  `hypr/input.lua`. Plugin source, Blip's Mac SSH setup, and
+  `~/.config/blip/bridge.conf` stay off this tree.
+
 ## [1.0.0] - 2026-09-13
 
 First tagged release of the `ddbomarchy` overlay tree. The overlays already on
@@ -44,4 +56,5 @@ lid/hibernate stack captured from this host.
 - `capture.sh` copies the lid/hibernate drop-ins, Hyprland lid scripts,
   `bindings.lua`, and the lid-sleep-guard user unit.
 
+[1.0.1]: https://github.com/daveyb/omarchy-configs/releases/tag/v1.0.1
 [1.0.0]: https://github.com/daveyb/omarchy-configs/releases/tag/v1.0.0
