@@ -1,0 +1,646 @@
+#!/usr/bin/env python3
+
+import errno
+import http.client
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import urllib.parse
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from enum import Enum
+
+PORT = 4000
+
+_WRAPPERS = frozenset({"--lan", "--tailnet", "--no-auto"})
+_REDIRECTS = frozenset({301, 302, 303, 307, 308})
+
+
+def _decimal_octet(part: str) -> bool:
+    if not part.isascii() or not part.isdigit():
+        return False
+    if len(part) > 1 and part[0] == "0":
+        return False
+    return int(part) <= 255
+
+
+@dataclass(frozen=True, slots=True)
+class Ipv4:
+    octets: tuple[int, int, int, int]
+
+    def __post_init__(self) -> None:
+        octets = self.octets
+        if len(octets) != 4 or any(
+            type(part) is not int or part < 0 or part > 255 for part in octets
+        ):
+            raise ValueError("not ipv4")
+
+    @staticmethod
+    def parse(text: str) -> "Ipv4":
+        parts = text.split(".")
+        if len(parts) != 4 or any(not _decimal_octet(part) for part in parts):
+            raise ValueError("not ipv4")
+        return Ipv4(tuple(int(part) for part in parts))
+
+    def text(self) -> str:
+        return ".".join(str(part) for part in self.octets)
+
+
+@dataclass(frozen=True, slots=True)
+class TailnetName:
+    host: str
+
+    def __post_init__(self) -> None:
+        host = self.host
+        if not host or "://" in host or "/" in host or ":" in host:
+            raise ValueError("not a tailnet name")
+        try:
+            Ipv4.parse(host)
+        except ValueError:
+            return
+        raise ValueError("not a tailnet name")
+
+
+@dataclass(frozen=True, slots=True)
+class HttpOrigin:
+    ip: Ipv4
+
+    def __post_init__(self) -> None:
+        if type(self.ip) is not Ipv4:
+            raise TypeError("origin ip must be Ipv4")
+
+    def base_url(self) -> str:
+        return f"http://{self.ip.text()}:{PORT}/v1"
+
+
+class Force(Enum):
+    LAN = "lan"
+    TAILNET = "tailnet"
+
+
+@dataclass(frozen=True, slots=True)
+class AutoRoute:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ForcedRoute:
+    which: Force
+
+
+RouteChoice = AutoRoute | ForcedRoute
+
+
+@dataclass(frozen=True, slots=True)
+class MasterKey:
+    _value: str
+
+    def __post_init__(self) -> None:
+        value = self._value
+        if (
+            type(value) is not str
+            or len(value) < 20
+            or any(ch.isspace() for ch in value)
+            or value.startswith("pass://")
+            or value.startswith("Error")
+        ):
+            raise ValueError("rejected")
+
+    def reveal(self) -> str:
+        return self._value
+
+    def __str__(self) -> str:
+        return "MasterKey(redacted)"
+
+    def __repr__(self) -> str:
+        return "MasterKey(redacted)"
+
+
+class FailReason(Enum):
+    TIMEOUT = "timeout"
+    REFUSED = "connection refused"
+    HTTP = "http"
+    NOT_MODEL = "model id absent"
+    BAD_JSON = "not json"
+    REDIRECT = "redirect"
+    DNS = "dns"
+
+
+@dataclass(frozen=True, slots=True)
+class ProbeHit:
+    origin: HttpOrigin
+
+
+@dataclass(frozen=True, slots=True)
+class ProbeMiss:
+    where: str
+    reason: FailReason
+    http_status: int | None
+
+    def __post_init__(self) -> None:
+        if self.reason is FailReason.HTTP:
+            if type(self.http_status) is not int:
+                raise ValueError("http status required")
+        elif self.http_status is not None:
+            raise ValueError("http status only for http")
+
+
+Probe = ProbeHit | ProbeMiss
+
+
+@dataclass(frozen=True, slots=True)
+class CommandFlags:
+    value_flags: frozenset[str]
+    takes_auto: bool
+    takes_standalone: bool
+
+
+FlagTable = Mapping[str | None, CommandFlags]
+
+
+@dataclass(frozen=True, slots=True)
+class Invocation:
+    choice: RouteChoice
+    args: tuple[str, ...]
+    suppress_auto: bool
+    help_only: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Lab:
+    lan: HttpOrigin
+    tailnet: TailnetName
+    vault_name: str
+    item_title: str
+    field_name: str
+    provider_id: str
+    model_id: str
+    display_provider: str
+    display_model: str
+    npm: str
+    context_limit: int
+    output_limit: int
+    request_timeout_ms: int
+    probe_timeout_s: float
+
+
+LAB = Lab(
+    lan=HttpOrigin(Ipv4.parse("192.168.4.29")),
+    tailnet=TailnetName("spark-03b7.tail33327.ts.net"),
+    vault_name="Hermes",
+    item_title="LITELLM_MASTER_KEY",
+    field_name="secret",
+    provider_id="spark",
+    model_id="muse-glimmer",
+    display_provider="DGX Spark",
+    display_model="Muse Glimmer",
+    npm="@ai-sdk/openai-compatible",
+    context_limit=131072,
+    output_limit=8192,
+    request_timeout_ms=600000,
+    probe_timeout_s=1.0,
+)
+
+GLOBAL_VALUE_FLAGS = frozenset({"--log-level", "--completions"})
+
+
+def command(
+    local: frozenset[str], takes_auto: bool, takes_standalone: bool
+) -> CommandFlags:
+    return CommandFlags(local | GLOBAL_VALUE_FLAGS, takes_auto, takes_standalone)
+
+
+_UPGRADE = command(frozenset({"--method", "-m"}), False, False)
+
+FLAG_TABLE: dict[str | None, CommandFlags] = {
+    None: command(frozenset({"--server", "--session", "-s", "--prompt"}), True, True),
+    "upgrade": _UPGRADE,
+    "update": _UPGRADE,
+    "uninstall": command(frozenset(), False, False),
+    "acp": command(frozenset(), False, False),
+    "api": command(
+        frozenset({"--server", "--data", "-d", "--header", "-H", "--param"}),
+        False,
+        True,
+    ),
+    "debug": command(frozenset(), False, False),
+    "auth": command(frozenset(), False, False),
+    "mcp": command(frozenset(), False, False),
+    "plugin": command(frozenset(), False, False),
+    "models": command(frozenset({"--server"}), False, True),
+    "stats": command(
+        frozenset({"--server", "--days", "--year", "--project", "--limit"}),
+        False,
+        True,
+    ),
+    "mini": command(
+        frozenset(
+            {
+                "--server",
+                "--session",
+                "-s",
+                "--replay-limit",
+                "--model",
+                "-m",
+                "--agent",
+                "--prompt",
+            }
+        ),
+        False,
+        True,
+    ),
+    "run": command(
+        frozenset(
+            {
+                "--server",
+                "--session",
+                "-s",
+                "--model",
+                "-m",
+                "--agent",
+                "--format",
+                "--file",
+                "-f",
+                "--title",
+            }
+        ),
+        True,
+        True,
+    ),
+    "session": command(frozenset(), False, False),
+    "service": command(frozenset(), False, False),
+    "reload": command(frozenset({"--server"}), False, True),
+    "pair": command(frozenset({"--url"}), False, False),
+    "serve": command(frozenset({"--hostname", "--port", "--cors"}), False, False),
+}
+
+
+class UsageError(Exception):
+    pass
+
+
+class KeyRejected(Exception):
+    def __init__(self, detail: str = "") -> None:
+        self.detail = detail
+        super().__init__("master key unavailable")
+
+
+class RouteError(Exception):
+    def __init__(self, misses: tuple[ProbeMiss, ...]) -> None:
+        self.misses = misses
+        super().__init__("route failed")
+
+
+@dataclass(frozen=True, slots=True)
+class _Walk:
+    scope: str | None
+    scope_at: int | None
+    args: tuple[str, ...]
+    suppress_auto: bool
+    saw_lan: bool
+    saw_tailnet: bool
+
+
+def _help_text(lab: Lab) -> str:
+    return (
+        f"opencode-spark starts OpenCode on model {lab.provider_id}/{lab.model_id}.\n"
+        f"Use --lan to force {lab.lan.ip.text()} port {PORT} with no fallback.\n"
+        f"Use --tailnet to force the A record of {lab.tailnet.host}.\n"
+        "With neither flag, the LAN address is tried first.\n"
+        "The A record is used only if that probe fails.\n"
+        "Any other arguments are OpenCode arguments.\n"
+        "--no-auto is dropped and is not forwarded.\n"
+    )
+
+
+def _walk(argv: Sequence[str], flags: FlagTable) -> _Walk:
+    scope: str | None = None
+    scope_at: int | None = None
+    searching = True
+    suppress_auto = False
+    saw_lan = False
+    saw_tailnet = False
+    kept: list[str] = []
+    index = 0
+    count = len(argv)
+    while index < count:
+        token = argv[index]
+        if token in _WRAPPERS:
+            if token == "--lan":
+                saw_lan = True
+            elif token == "--tailnet":
+                saw_tailnet = True
+            else:
+                suppress_auto = True
+            index += 1
+            continue
+        if token.startswith("-") and "=" in token:
+            kept.append(token)
+            index += 1
+            continue
+        if token in flags[scope].value_flags:
+            kept.append(token)
+            index += 1
+            if index < count:
+                kept.append(argv[index])
+                index += 1
+            continue
+        if token.startswith("-"):
+            kept.append(token)
+            index += 1
+            continue
+        if searching and scope is None and token in flags:
+            scope = token
+            kept.append(token)
+            scope_at = len(kept) - 1
+            index += 1
+            continue
+        searching = False
+        kept.append(token)
+        index += 1
+    return _Walk(
+        scope,
+        scope_at,
+        tuple(kept),
+        suppress_auto,
+        saw_lan,
+        saw_tailnet,
+    )
+
+
+def parse_invocation(argv: Sequence[str], flags: FlagTable) -> Invocation:
+    tokens = tuple(argv)
+    if tokens == ("--help",) or tokens == ("-h",):
+        return Invocation(AutoRoute(), (), False, True)
+    walked = _walk(tokens, flags)
+    if walked.saw_lan and walked.saw_tailnet:
+        raise UsageError()
+    if walked.saw_lan:
+        choice: RouteChoice = ForcedRoute(Force.LAN)
+    elif walked.saw_tailnet:
+        choice = ForcedRoute(Force.TAILNET)
+    else:
+        choice = AutoRoute()
+    return Invocation(choice, walked.args, walked.suppress_auto, False)
+
+
+def _insert_at(args: tuple[str, ...], index: int, token: str) -> tuple[str, ...]:
+    return args[:index] + (token,) + args[index:]
+
+
+def rewrite_args(invocation: Invocation, flags: FlagTable) -> tuple[str, ...]:
+    args = invocation.args
+    walked = _walk(args, flags)
+    row = flags[walked.scope]
+    index = 0 if walked.scope is None else (walked.scope_at or 0) + 1
+    has_server = "--server" in args or any(
+        token.startswith("--server=") for token in args
+    )
+    if row.takes_standalone and "--standalone" not in args and not has_server:
+        args = _insert_at(args, index, "--standalone")
+        index += 1
+    if not row.takes_auto or invocation.suppress_auto or "--auto" in args:
+        return args
+    return _insert_at(args, index, "--auto")
+
+
+def _without_proton_pass(parent: Mapping[str, str]) -> dict[str, str]:
+    return {
+        name: value
+        for name, value in parent.items()
+        if not name.startswith("PROTON_PASS_")
+    }
+
+
+def read_master_key(lab: Lab) -> MasterKey:
+    binary = shutil.which("pass-cli")
+    if binary is None:
+        raise KeyRejected()
+    proc = subprocess.run(
+        [
+            binary,
+            "item",
+            "view",
+            "--vault-name",
+            lab.vault_name,
+            "--item-title",
+            lab.item_title,
+            "--field",
+            lab.field_name,
+        ],
+        shell=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=_without_proton_pass(os.environ),
+        check=False,
+    )
+    try:
+        text = proc.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        raise KeyRejected() from None
+    value = text.rstrip("\r\n")
+    if proc.returncode != 0:
+        detail = ""
+        if value == "":
+            detail = proc.stderr.decode("utf-8", errors="replace")
+        raise KeyRejected(detail)
+    try:
+        return MasterKey(value)
+    except ValueError:
+        raise KeyRejected() from None
+
+
+def resolve_a(name: TailnetName) -> Ipv4:
+    found = socket.getaddrinfo(
+        name.host, PORT, socket.AF_INET, socket.SOCK_STREAM
+    )
+    if not found:
+        raise OSError("no A record")
+    return Ipv4.parse(found[0][4][0])
+
+
+def _has_model(payload: object, model_id: str) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    data = payload.get("data")
+    if not isinstance(data, list):
+        return False
+    return any(
+        isinstance(item, dict) and item.get("id") == model_id for item in data
+    )
+
+
+def probe(
+    origin: HttpOrigin, key: MasterKey, model_id: str, timeout_s: float
+) -> Probe:
+    where = origin.ip.text()
+    parts = urllib.parse.urlsplit(origin.base_url() + "/models")
+    conn = http.client.HTTPConnection(parts.hostname, parts.port, timeout=timeout_s)
+    try:
+        conn.request(
+            "GET",
+            parts.path,
+            headers={"Authorization": "Bearer " + key.reveal()},
+        )
+        response = conn.getresponse()
+        status = response.status
+        body = response.read() if status == 200 else b""
+    except OSError as err:
+        if isinstance(err, TimeoutError) or err.errno == errno.ETIMEDOUT:
+            return ProbeMiss(where, FailReason.TIMEOUT, None)
+        return ProbeMiss(where, FailReason.REFUSED, None)
+    except http.client.HTTPException:
+        return ProbeMiss(where, FailReason.BAD_JSON, None)
+    finally:
+        conn.close()
+    if status in _REDIRECTS:
+        return ProbeMiss(where, FailReason.REDIRECT, None)
+    if status != 200:
+        return ProbeMiss(where, FailReason.HTTP, status)
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return ProbeMiss(where, FailReason.BAD_JSON, None)
+    if _has_model(payload, model_id):
+        return ProbeHit(origin)
+    return ProbeMiss(where, FailReason.NOT_MODEL, None)
+
+
+def _require_tailnet(
+    lab: Lab,
+    key: MasterKey,
+    probe_fn: Callable[[HttpOrigin, MasterKey, str, float], Probe],
+    resolve_fn: Callable[[TailnetName], Ipv4],
+) -> HttpOrigin:
+    try:
+        ip = resolve_fn(lab.tailnet)
+    except OSError:
+        raise RouteError((ProbeMiss(lab.tailnet.host, FailReason.DNS, None),)) from None
+    origin = HttpOrigin(ip)
+    hit = probe_fn(origin, key, lab.model_id, lab.probe_timeout_s)
+    if isinstance(hit, ProbeMiss):
+        raise RouteError((hit,))
+    return origin
+
+
+def launch_origin(
+    choice: RouteChoice,
+    lab: Lab,
+    key: MasterKey,
+    probe_fn: Callable[[HttpOrigin, MasterKey, str, float], Probe] = probe,
+    resolve_fn: Callable[[TailnetName], Ipv4] = resolve_a,
+) -> HttpOrigin:
+    if isinstance(choice, ForcedRoute) and choice.which is Force.TAILNET:
+        return _require_tailnet(lab, key, probe_fn, resolve_fn)
+    hit = probe_fn(lab.lan, key, lab.model_id, lab.probe_timeout_s)
+    if isinstance(hit, ProbeHit):
+        return lab.lan
+    if isinstance(choice, ForcedRoute):
+        raise RouteError((hit,))
+    try:
+        return _require_tailnet(lab, key, probe_fn, resolve_fn)
+    except RouteError as err:
+        raise RouteError((hit, *err.misses)) from None
+
+
+def provider_document(origin: HttpOrigin, lab: Lab) -> str:
+    model = f"{lab.provider_id}/{lab.model_id}"
+    timeout = lab.request_timeout_ms
+    document = {
+        "enabled_providers": [lab.provider_id],
+        "model": model,
+        "small_model": model,
+        "provider": {
+            lab.provider_id: {
+                "npm": lab.npm,
+                "name": lab.display_provider,
+                "options": {
+                    "apiKey": "{env:LITELLM_MASTER_KEY}",
+                    "baseURL": origin.base_url(),
+                    "timeout": timeout,
+                    "headerTimeout": timeout,
+                    "chunkTimeout": timeout,
+                },
+                "models": {
+                    lab.model_id: {
+                        "name": lab.display_model,
+                        "limit": {
+                            "context": lab.context_limit,
+                            "output": lab.output_limit,
+                        },
+                    }
+                },
+            }
+        },
+    }
+    return json.dumps(document)
+
+
+def child_env(
+    parent: Mapping[str, str], key: MasterKey, document: str
+) -> dict[str, str]:
+    env = _without_proton_pass(parent)
+    env["LITELLM_MASTER_KEY"] = key.reveal()
+    env["OPENCODE_CONFIG_CONTENT"] = document
+    return env
+
+
+def format_route_failure(misses: tuple[ProbeMiss, ...]) -> str:
+    parts: list[str] = []
+    for miss in misses:
+        if miss.reason is FailReason.DNS:
+            parts.append(f"{miss.where} dns")
+        elif miss.reason is FailReason.HTTP:
+            parts.append(f"{miss.where}:{PORT} http {miss.http_status}")
+        else:
+            parts.append(f"{miss.where}:{PORT} {miss.reason.value}")
+    return "opencode-spark: route failed: " + "; ".join(parts)
+
+
+def _fail(message: str, code: int) -> None:
+    sys.stderr.write(message + "\n")
+    sys.exit(code)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    tokens = tuple(sys.argv[1:] if argv is None else argv)
+    try:
+        invocation = parse_invocation(tokens, FLAG_TABLE)
+    except UsageError:
+        _fail("opencode-spark: pass either --lan or --tailnet, not both", 2)
+    if invocation.help_only:
+        sys.stdout.write(_help_text(LAB))
+        return
+    opencode_bin = shutil.which("opencode")
+    if opencode_bin is None:
+        _fail("opencode-spark: opencode not on PATH", 6)
+    if shutil.which("pass-cli") is None:
+        _fail("opencode-spark: pass-cli not on PATH", 3)
+    try:
+        key = read_master_key(LAB)
+    except KeyRejected as err:
+        sys.stderr.write("opencode-spark: master key unavailable in vault Hermes\n")
+        if err.detail:
+            sys.stderr.write(err.detail)
+            if not err.detail.endswith("\n"):
+                sys.stderr.write("\n")
+        sys.exit(3)
+    try:
+        origin = launch_origin(invocation.choice, LAB, key)
+    except RouteError as err:
+        sys.stderr.write(format_route_failure(err.misses) + "\n")
+        sys.exit(4)
+    document = provider_document(origin, LAB)
+    env = child_env(os.environ, key, document)
+    rewritten = rewrite_args(invocation, FLAG_TABLE)
+    try:
+        os.execvpe(opencode_bin, [opencode_bin, *rewritten], env)
+    except OSError:
+        _fail("opencode-spark: exec opencode failed", 6)
+
+
+if __name__ == "__main__":
+    main()
