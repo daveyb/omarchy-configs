@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/opencode-spark` starts OpenCode on `spark/muse-glimmer` through the lab proxy. The key comes from Proton Pass vault Hermes. Apply copies the command to `~/.local/bin/opencode-spark`.
+
 ## [1.0.1] - 2026-09-20
 
 ### Added

@@ -16,6 +16,7 @@ xcompose/XCompose       compose sequences for name and email
 packages/extras.txt     explicit packages not in the Omarchy install lists
 scripts/capture.sh      copy live overlays into this tree
 scripts/scan-secrets.sh fail if a secret landed here
+scripts/opencode-spark  start OpenCode on the lab model spark/muse-glimmer
 ```
 
 ## Capture
@@ -48,7 +49,10 @@ install -D omarchy/defaults/agent ~/.config/omarchy/defaults/agent
 install -d ~/.config/omarchy/system
 cp -a omarchy/system/. ~/.config/omarchy/system/
 cp xcompose/XCompose ~/.XCompose
+install -D -m 755 scripts/opencode-spark ~/.local/bin/opencode-spark
 ```
+
+`opencode-spark` starts OpenCode on `spark/muse-glimmer`. Copy it onto `PATH` with the install line above. `pass-cli` must already be logged in to vault Hermes, item `LITELLM_MASTER_KEY`. The command reads that field into the OpenCode process. It leaves `opencode.json` unchanged. It starts a private OpenCode server, which loads the lab provider from `OPENCODE_CONFIG_CONTENT`. With no flag it tries `192.168.4.29` port 4000, then the A record of `spark-03b7.tail33327.ts.net`. `--lan` and `--tailnet` do not fall back.
 
 The lid/hibernate drop-ins live in `~/.config/omarchy/system/` as the source. Install them into `/etc` with:
 
