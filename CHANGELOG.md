@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-15
+
+### Added
+
+- `systemd/user/google-drive.service` plus `local-bin/google-drive-mount`,
+  `local-bin/google-drive-pre`, and `local-bin/google-drive-check`. The
+  folder `~/GoogleDrive` lists My Drive and Shared with me and downloads a
+  file when you open it. The mount is read-only. The OAuth token stays in
+  `~/.config/rclone/rclone.conf` and is not in this tree.
+- `rclone` in `packages/extras.txt`.
+
+### Changed
+
+- `capture.sh` copies the Google Drive unit and the three helper scripts.
+- `scan-secrets.sh` rejects a file named `rclone.conf`.
+
 ## [1.1.0] - 2026-11-14
 
 Live-host resync. Lid close follows the stock suspend path with a

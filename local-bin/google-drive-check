@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mp="${HOME}/GoogleDrive"
+fail() {
+	printf 'FAIL %s\n' "$1" >&2
+	exit 1
+}
+
+fstype="$(findmnt -n -o FSTYPE --mountpoint "$mp" 2>/dev/null || true)"
+[[ "$fstype" == fuse.rclone ]] || fail "GoogleDrive is not a fuse.rclone mount (got ${fstype:-unmounted})"
+
+name_list() {
+	if [[ "$1" == api ]]; then
+		rclone lsf "$2" --max-depth 1 --dir-slash=false 2>/dev/null | sort
+	else
+		find "$2" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort
+	fi
+}
+
+cmp -s <(name_list api "google:My Drive") <(name_list mount "$mp/My Drive") \
+	|| fail "My Drive names differ"
+cmp -s <(name_list api "google:Shared with me") <(name_list mount "$mp/Shared with me") \
+	|| fail "Shared with me names differ"
+my_api="$(name_list api "google:My Drive" | wc -l)"
+shared_api="$(name_list api "google:Shared with me" | wc -l)"
+
+python3 - "$mp" << 'PY'
+import hashlib, json, subprocess, sys
+from pathlib import Path
+
+mount = Path(sys.argv[1])
+
+def files(remote, depth):
+    raw = subprocess.check_output(
+        ["rclone", "lsjson", remote, "--max-depth", str(depth), "--files-only"],
+        stderr=subprocess.DEVNULL,
+    )
+    rows = json.loads(raw or b"[]")
+    picked = []
+    for row in rows:
+        size = row.get("Size") or 0
+        mime = row.get("MimeType") or ""
+        name = Path(row["Path"]).name.encode()
+        if size <= 0 or size > 1_000_000:
+            continue
+        if mime.startswith("application/vnd.google-apps."):
+            continue
+        if len(name) > 255:
+            continue
+        picked.append((size, row["Path"]))
+    picked.sort()
+    return picked
+
+choice = None
+for remote, depth in (("gdrive:", 1), ("gdrive:", 2)):
+    found = files(remote, depth)
+    if found:
+        choice = found[0]
+        break
+if choice is None:
+    sys.exit("FAIL no regular file under 1MB in My Drive to read back")
+
+size, rel = choice
+local = mount / "My Drive" / rel
+data = local.read_bytes()
+if len(data) != size:
+    sys.exit(f"FAIL read {len(data)} bytes, Drive reports {size}")
+remote_hash = subprocess.check_output(
+    ["rclone", "hashsum", "SHA256", f"gdrive:{rel}"],
+    stderr=subprocess.DEVNULL,
+    text=True,
+).split()[0]
+local_hash = hashlib.sha256(data).hexdigest()
+if remote_hash != local_hash:
+    sys.exit("FAIL file bytes do not match Drive")
+print(f"read_ok bytes={size} sha256={local_hash}")
+PY
+
+cache_bytes=0
+if [[ -d "${HOME}/.cache/rclone" ]]; then
+	cache_bytes="$(du -sb "${HOME}/.cache/rclone" | awk '{print $1}')"
+fi
+cap=$((2 * 1024 * 1024 * 1024 + 64 * 1024 * 1024))
+[[ "$cache_bytes" -lt "$cap" ]] || fail "rclone cache is ${cache_bytes} bytes, over the 2G cap"
+
+printf 'OK fstype=%s my_drive=%s shared=%s cache_bytes=%s\n' \
+	"$fstype" "$my_api" "$shared_api" "$cache_bytes"

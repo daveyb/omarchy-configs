@@ -11,6 +11,7 @@ ninja
 obs-studio
 owe-lockfeed
 proton-vpn-cli
+rclone
 spotify
 steam
 tailscale
