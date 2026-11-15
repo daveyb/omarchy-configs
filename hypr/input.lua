@@ -83,7 +83,12 @@ hl.device({
 -- hl.gesture({ fingers = 3, direction = "left", action = function() hl.dispatch(hl.dsp.focus({ direction = "l" })) end })
 -- hl.gesture({ fingers = 3, direction = "right", action = function() hl.dispatch(hl.dsp.focus({ direction = "r" })) end })
 -- BEGIN Trackpad Plus gestures
--- {"original": "", "separator": "", "settings": {"distance": 300, "enabled": true, "fingers": 4, "invert": false, "overview": false, "overview_provider": "hymission"}, "version": 7}
-hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })
+-- {"original": "", "separator": "", "settings": {"distance": 300, "enabled": true, "fingers": 4, "fullscreen_up": false, "invert": false, "overview": true, "overview_provider": "hymission", "scratchpad_down": false}, "version": 8}
+if hl.plugin.hymission and hl.plugin.hymission.gesture then
+  hl.plugin.hymission.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })
+  hl.plugin.hymission.gesture({ fingers = 4, direction = "vertical", action = "toggle", args = "forceall" })
+else
+  hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })
+end
 hl.config({ gestures = { workspace_swipe_distance = 300, workspace_swipe_invert = false } })
 -- END Trackpad Plus gestures

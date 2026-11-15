@@ -1,4 +1,4 @@
 davefano.trackpad-plus
+io.github.gfhdhytghd.hymission
 io.github.grichard99.omaproton-vpn
 nixfred.blip
-rlimberger.grokbar-omarchy

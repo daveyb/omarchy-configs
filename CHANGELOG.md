@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-14
+
+Live-host resync. Lid close follows the stock suspend path with a
+stay-awake inhibitor, the Studio Display is the sole screen while
+connected, and Steam, Hymission, dictation, and Bluetooth-retry overlays
+are captured.
+
+### Added
+
+- `hypr/scripts/lid-awake.sh` and `systemd/user/lid-awake.service`: hold a
+  `handle-lid-switch` block inhibitor while an external monitor is
+  connected or Pocket Casts (now a Chromium PWA) is playing, with 15s
+  tails against USB-C blips. A playback lid-close darkens the panel
+  instead of locking so audio keeps playing.
+- `hypr/scripts/studio-display-only.sh`: while the Studio Display shows a
+  picture it is the only screen at highres 1x (DRM EDID decides, so a
+  stale Hyprland head cannot keep the laptop panel off).
+- Steam overlays: `hypr/steam-idle.lua` holds idle off for the whole life
+  of a game window (SteamAppId ancestry, not just fullscreen `steam`
+  class), `hypr/steam-quit.lua` plus
+  `hypr/scripts/steam-quit-on-close.sh` quit the client when the main
+  window closes unless a game runs, and `hypr/hyprland.lua` requires both.
+- Hymission overview service (`io.github.gfhdhytghd.hymission`): 4-finger
+  horizontal swipes switch workspaces and 4-finger vertical toggles the
+  overview (Trackpad Plus v8 settings in `hypr/input.lua`).
+- `omarchy/defaults/dictation` (`voxtype`) with SUPER+CTRL+X toggle and F9
+  push-to-talk bindings kept from before the new defaults.
+- `systemd/user/bose-a2dp-retry.service` plus `local-bin/bose-a2dp-retry`:
+  reconnect headsets when BlueZ 5.87's first A2DP connection fails with
+  device-busy.
+- `systemd/user/voxtype.service` for the push-to-talk daemon.
+- Bar otherwise: elsewhen world cities (New York, London, Dubai, Tokyo,
+  Los Angeles), keyboard-layout moved to the right, indicators and
+  weather/system-update in centerBegin/centerEnd.
+- Extra packages: clang, cmake, hermes-desktop, kdenlive, lazydocker,
+  lib32-vulkan-intel, llvm, ninja, obs-studio, owe-lockfeed, spotify,
+  steam, xournalpp.
+
+### Changed
+
+- Default agent is `muse` (was `grok`).
+- Studio Display monitor rule is highres at 1x sole-screen (was preferred
+  at 3.2x secondary). `xreal-laptop.sh` defers while studio-only owns the
+  laptop panel.
+- Clock format is `ddd d MMM h:mm AP` with `birthYear` 1982 and
+  `lifeExpectancy` 92; `centerAnchor` is gone.
+- `capture.sh` tracks the current host file set (lid-awake, studio-only,
+  steam, dictation, bose/voxtype units, local-bin).
+
+### Removed
+
+- `hypr/scripts/lid-close.sh`, `hypr/scripts/lid-sleep-guard.sh`, and
+  `systemd/user/lid-sleep-guard.service`: hibernate-on-lid-close is no
+  longer the live path. The `omarchy/system/` drop-in sources are
+  retained but not installed in `/etc` on this host.
+- `rlimberger.grokbar-omarchy` plugin directory. `shell.json` still
+  references its bar widget, matching the host.
+- Extra packages: calibre, github-copilot-cli, pocket-casts-linux (now a
+  Chromium PWA), rclone, zed.
+
+### Fixed
+
+- `git/config` and `cidata/user_email_address.txt` carry the full
+  `user.email` with `@`; the initial capture dropped it.
+
 ## [1.0.1] - 2026-09-20
 
 ### Added
@@ -56,5 +121,6 @@ lid/hibernate stack captured from this host.
 - `capture.sh` copies the lid/hibernate drop-ins, Hyprland lid scripts,
   `bindings.lua`, and the lid-sleep-guard user unit.
 
+[1.1.0]: https://github.com/daveyb/omarchy-configs/releases/tag/v1.1.0
 [1.0.1]: https://github.com/daveyb/omarchy-configs/releases/tag/v1.0.1
 [1.0.0]: https://github.com/daveyb/omarchy-configs/releases/tag/v1.0.0

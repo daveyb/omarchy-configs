@@ -23,13 +23,20 @@
 -- Disable a default binding without replacing it.
 -- hl.unbind("SUPER + SHIFT + B")
 
--- Lid close: hibernate unless an external display is connected (clamshell).
--- s2idle is too warm for a closed lid in a bag; do not use it here.
-hl.unbind("switch:on:Lid Switch")
-o.bind("switch:on:Lid Switch", "Lid close lock and hibernate", os.getenv("HOME") .. "/.config/hypr/scripts/lid-close.sh", { locked = true })
-
-
 -- Logitech MX Keys examples:
 -- o.bind("SUPER + SHIFT + S", nil, "omarchy-capture-screenshot")
 -- o.bind("SUPER + H", nil, "voxtype record toggle")
 -- o.bind("SUPER + PERIOD", nil, "omarchy-shell shell toggle omarchy.emojis")
+
+-- Stock lid close locks the session, and that lock may pause Chromium.
+hl.unbind("switch:on:Lid Switch")
+hl.unbind("switch:off:Lid Switch")
+o.bind("switch:on:Lid Switch", nil, os.getenv("HOME") .. "/.config/hypr/scripts/lid-awake.sh lid-close", { locked = true })
+o.bind("switch:off:Lid Switch", nil, os.getenv("HOME") .. "/.config/hypr/scripts/lid-awake.sh lid-open", { locked = true })
+
+-- Dictation keys from before Alt + Space and Right Alt became the defaults.
+-- Remove these lines to give the keys back to applications.
+if o.dictation_installed and o.dictation_installed() then
+  o.bind("SUPER + CTRL + X", "Toggle dictation", "omarchy-dictation toggle")
+  o.bind_hold("F9", "Start dictation (push-to-talk)", "omarchy-dictation start", "Stop dictation (push-to-talk)", "omarchy-dictation stop")
+end
