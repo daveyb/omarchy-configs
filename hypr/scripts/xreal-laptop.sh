@@ -30,6 +30,10 @@ xreal_present() {
   ' >/dev/null 2>&1
 }
 
+studio_only() {
+  [[ -f ${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/studio-display-only ]]
+}
+
 other_external_active() {
   hyprctl monitors all -j 2>/dev/null | jq -e '
     .[]
@@ -71,7 +75,9 @@ sync_laptop() {
         apply_xreal_scale
       fi
     else
-      if [[ -f $CONNECTED_FLAG ]]; then
+      if studio_only; then
+        : # studio-display-only.sh owns the laptop panel
+      elif [[ -f $CONNECTED_FLAG ]]; then
         rm -f "$CONNECTED_FLAG"
         omarchy-hyprland-monitor-internal on
       elif omarchy-hyprland-toggle-enabled internal-monitor-disable && ! other_external_active; then

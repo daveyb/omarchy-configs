@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# When the Apple Studio Display unplugs, Hyprland keeps the 5K scale on the
-# remaining head (1080p 3.2x becomes 3.33x). Force the laptop default back.
+# When the Apple Studio Display unplugs, Hyprland keeps that panel's scale on
+# the remaining head. Force the laptop default back.
 #
 # Omarchy's scale selector also rewrites omarchy_monitor_scale in monitors.lua
 # to the focused monitor's scale, so a SUPER+/ on the Studio Display poisons

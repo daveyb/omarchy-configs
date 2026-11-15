@@ -1,0 +1,13 @@
+[Unit]
+Description=Reconnect Bluetooth headphones when the first A2DP connection fails
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/bose-a2dp-retry
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Stay awake on lid close while an external monitor is connected or Pocket Casts is playing
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/hypr/scripts/lid-awake.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

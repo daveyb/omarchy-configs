@@ -25,13 +25,14 @@ hl.monitor({
   scale = 1.6,
 })
 
--- Apple Studio Display: match by description so DP/HDMI/dock port changes
--- still get 3.2x on plug-in (5120x2880 -> 1600x900 logical).
+-- Apple Studio Display: sole screen while plugged in, at the panel's
+-- highest mode and 1:1 scale. studio-display-only.sh turns the laptop
+-- panel off once the display is actually showing a picture.
 hl.monitor({
   output = "desc:Apple Computer Inc StudioDisplay 0x3BFFBA20",
-  mode = "preferred",
+  mode = "highres",
   position = "0x0",
-  scale = 3.2,
+  scale = 1,
 })
 
 -- HP E243 on top, laptop panel directly below. auto-down keeps the laptop
@@ -54,18 +55,22 @@ hl.monitor({
 -- wake it so we don't wait for the next poll.
 local xreal_laptop = os.getenv("HOME") .. "/.config/hypr/scripts/xreal-laptop.sh --once"
 local studio_scale = os.getenv("HOME") .. "/.config/hypr/scripts/studio-display-scale.sh --once"
+local studio_only = os.getenv("HOME") .. "/.config/hypr/scripts/studio-display-only.sh --once"
 
 hl.on("monitor.added", function()
   hl.exec_cmd(xreal_laptop)
   hl.exec_cmd(studio_scale)
+  hl.exec_cmd(studio_only)
 end)
 hl.on("monitor.removed", function()
   hl.exec_cmd(xreal_laptop)
   hl.exec_cmd(studio_scale)
+  hl.exec_cmd(studio_only)
 end)
 hl.on("hyprland.start", function()
   hl.exec_cmd(xreal_laptop)
   hl.exec_cmd(studio_scale)
+  hl.exec_cmd(studio_only)
 end)
 
 -- Configure a specific monitor.

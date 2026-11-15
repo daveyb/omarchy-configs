@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# BlueZ 5.87 never reloads a headset's cached A2DP endpoint
+# (https://github.com/bluez/bluez/issues/2285). The first connection then
+# fails with "a2dp-sink profile connect failed: Device or resource busy",
+# and PipeWire is left holding a dead transport. A host-initiated reconnect
+# succeeds. Do that once per failure, for whichever headset hit it.
+
+set -u
+
+declare -A cooldown
+
+reconnect() {
+  local mac="$1"
+  local now
+  now=$(date +%s)
+  if (( now < ${cooldown[$mac]:-0} )); then
+    return 0
+  fi
+  cooldown[$mac]=$((now + 40))
+  echo "A2DP failed for ${mac}; reconnecting"
+  bluetoothctl --timeout 15 disconnect "$mac" || true
+  sleep 2
+  bluetoothctl --timeout 20 connect "$mac" || true
+}
+
+# Devices already stuck on the broken transport when this process started.
+while IFS= read -r mac; do
+  [[ -n "$mac" ]] && reconnect "$mac"
+done < <(busctl tree org.bluez 2>/dev/null | awk '
+  {
+    line = $0
+    if (match(line, /dev_([0-9A-F_]+)\/fd[0-9]+$/) && index(line, "/sep") == 0) {
+      mac = substr(line, RSTART + 4, RLENGTH - 4)
+      sub(/\/fd[0-9]+$/, "", mac)
+      gsub(/_/, ":", mac)
+      bare[mac] = 1
+    }
+    if (match(line, /dev_([0-9A-F_]+)\/sep[0-9]+\/fd[0-9]+/)) {
+      mac = substr(line, RSTART + 4, RLENGTH - 4)
+      sub(/\/sep[0-9]+\/fd[0-9]+$/, "", mac)
+      gsub(/_/, ":", mac)
+      good[mac] = 1
+    }
+  }
+  END {
+    for (mac in bare)
+      if (!good[mac])
+        print mac
+  }
+')
+
+journalctl -u bluetooth -f -n 0 -o cat | while IFS= read -r line; do
+  if [[ "$line" =~ a2dp-sink\ profile\ connect\ failed\ for\ ([0-9A-F:]+):\ Device\ or\ resource\ busy ]]; then
+    reconnect "${BASH_REMATCH[1]}"
+  fi
+done
