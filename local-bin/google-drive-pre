@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly refuse_local_files=78
+
+mp="${HOME}/GoogleDrive"
+cmd="${1:-pre}"
+
+mounted() {
+	findmnt -n --mountpoint "$mp" >/dev/null 2>&1
+}
+
+release() {
+	if mounted; then
+		fusermount3 -uz "$mp"
+	fi
+}
+
+case "$cmd" in
+pre)
+	mkdir -p "$mp" "${HOME}/.cache/rclone" "${HOME}/.local/state/google-drive-mount"
+	if mounted; then
+		if ls -A "$mp" >/dev/null 2>&1; then
+			exit 0
+		fi
+		release || true
+	fi
+	if find "$mp" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+		printf 'Refusing to mount over local files in %s\n' "$mp" >&2
+		exit "$refuse_local_files"
+	fi
+	;;
+stop)
+	release || true
+	;;
+*)
+	printf 'usage: google-drive-pre [pre|stop]\n' >&2
+	exit 2
+	;;
+esac

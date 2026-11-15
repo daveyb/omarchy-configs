@@ -11,7 +11,7 @@ cidata/                 public unattended-install inputs
 hypr/                   Hyprland overlays that differ from Omarchy defaults
 local-bin/              helper scripts owned by the user units
 omarchy/                shell.json, default agent/dictation, plugin ids, system drop-ins
-systemd/user/           user units (lid-awake, bose-a2dp-retry, voxtype)
+systemd/user/           user units (lid-awake, bose-a2dp-retry, voxtype, google-drive)
 git/config              user.name and user.email only
 xcompose/XCompose       compose sequences for name and email
 packages/extras.txt     explicit packages not in the Omarchy install lists
@@ -28,7 +28,7 @@ From a configured `ddbomarchy`:
 ./scripts/scan-secrets.sh
 ```
 
-`capture.sh` copies Hyprland and Omarchy overlays, the lid-awake/bose/voxtype user units, the bose helper script, the lid/hibernate/wakeup drop-in sources, git identity, XCompose, extra packages, and plugin directory names. It does not copy plugin source, `.bak` files, credential helpers, or `user_credentials.json`.
+`capture.sh` copies Hyprland and Omarchy overlays, the lid-awake, bose, voxtype, and google-drive user units, the bose and google-drive helper scripts, the lid, hibernate, and wakeup drop-in sources, git identity, XCompose, extra packages, and plugin directory names. It does not copy plugin source, `.bak` files, credential helpers, `user_credentials.json`, or `rclone.conf`.
 
 ## Apply
 
@@ -50,7 +50,11 @@ install -D hypr/scripts/steam-quit-on-close.sh ~/.config/hypr/scripts/steam-quit
 install -D systemd/user/lid-awake.service ~/.config/systemd/user/lid-awake.service
 install -D systemd/user/bose-a2dp-retry.service ~/.config/systemd/user/bose-a2dp-retry.service
 install -D systemd/user/voxtype.service ~/.config/systemd/user/voxtype.service
+install -D systemd/user/google-drive.service ~/.config/systemd/user/google-drive.service
 install -D local-bin/bose-a2dp-retry ~/.local/bin/bose-a2dp-retry
+install -D local-bin/google-drive-mount ~/.local/bin/google-drive-mount
+install -D local-bin/google-drive-pre ~/.local/bin/google-drive-pre
+install -D local-bin/google-drive-check ~/.local/bin/google-drive-check
 cp omarchy/shell.json ~/.config/omarchy/shell.json
 install -D omarchy/defaults/agent ~/.config/omarchy/defaults/agent
 install -D omarchy/defaults/dictation ~/.config/omarchy/defaults/dictation
@@ -64,6 +68,38 @@ Enable the user units with:
 ```
 systemctl --user enable --now lid-awake.service bose-a2dp-retry.service voxtype.service
 ```
+
+Sign in to Google Drive once before you enable `google-drive.service`. The token stays in `~/.config/rclone/rclone.conf`. Do not copy that file into this tree.
+
+```
+rclone config create gdrive drive scope=drive config_is_local=true config_shared_client_id=true
+```
+
+Approve rclone in the browser. Then add a `gdrive-shared` section with the same `token` line, `shared_with_me = true`, and a combine remote named `google`:
+
+```
+[google]
+type = combine
+upstreams = "My Drive=gdrive:" "Shared with me=gdrive-shared:"
+```
+
+Enable the mount after those sections exist:
+
+```
+systemctl --user daemon-reload
+systemctl --user enable --now google-drive.service
+```
+
+`google-drive-mount` mounts `google:` read-only at `~/GoogleDrive`. Opening a file downloads that file into `~/.cache/rclone`, trimmed toward 2G. If `~/GoogleDrive` already contains local files while the service is stopped, the next start exits 78 and leaves those files in place. Move them out, then start the service again.
+
+Add the Nautilus bookmark if it is missing:
+
+```
+bookmark="file://${HOME}/GoogleDrive Google Drive"
+grep -qxF "$bookmark" ~/.config/gtk-3.0/bookmarks || printf '%s\n' "$bookmark" >> ~/.config/gtk-3.0/bookmarks
+```
+
+Run `google-drive-check` after the mount is up. It compares the folder names with Drive and reads one small file.
 
 Lid close follows the stock suspend path. `lid-awake.service` holds a `handle-lid-switch` block inhibitor while an external monitor is connected or Pocket Casts is playing, and the Hyprland lid binds run `lid-awake.sh` for lock/clamshell handling (dark panel while audio plays).
 
@@ -101,4 +137,5 @@ Blip still needs `blip-setup` on this host (Mac SSH and `~/.config/blip/bridge.c
 - Default agent is `muse`. Default dictation backend is `voxtype` (SUPER+CTRL+X toggle and F9 push-to-talk kept from before the new defaults).
 - Steam games hold idle off for the game window's life; closing the main Steam window quits the client unless a game is running.
 - Bluetooth: `bose-a2dp-retry` reconnects headsets when BlueZ 5.87's first A2DP connection fails with device-busy.
-- Extra packages: clang/LLVM/CMake/Ninja toolchain, draw.io, grok-bot, Hermes, Kdenlive, lazydocker, 32-bit Intel Vulkan (Steam), OBS Studio, owe-lockfeed, Proton VPN CLI, Spotify, Steam, Tailscale, Telegram, voxtype, Xournal++.
+- Google Drive: `google-drive.service` mounts `~/GoogleDrive` read-only. Files download when opened. The rclone token is not in this tree.
+- Extra packages: clang/LLVM/CMake/Ninja toolchain, draw.io, grok-bot, Hermes, Kdenlive, lazydocker, 32-bit Intel Vulkan (Steam), OBS Studio, owe-lockfeed, Proton VPN CLI, rclone, Spotify, Steam, Tailscale, Telegram, voxtype, Xournal++.
