@@ -2,7 +2,7 @@
 set -euo pipefail
 
 "$(dirname "$0")/google-drive-pre" pre
-exec /usr/bin/rclone mount google: "${HOME}/GoogleDrive" \
+exec /usr/bin/rclone mount gdrive: "${HOME}/GoogleDrive" \
 	--read-only \
 	--config "${HOME}/.config/rclone/rclone.conf" \
 	--cache-dir "${HOME}/.cache/rclone" \

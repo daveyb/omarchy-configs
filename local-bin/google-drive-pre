@@ -10,21 +10,34 @@ mounted() {
 	findmnt -n --mountpoint "$mp" >/dev/null 2>&1
 }
 
+# Drop a live, wedged, or disconnected FUSE mount so the mountpoint is a
+# normal directory again. A disconnected mount stays in the table and stat()
+# on it fails, which makes mkdir -p abort before anything can detach it.
 release() {
 	if mounted; then
-		fusermount3 -uz "$mp"
+		fusermount3 -uz "$mp" || true
 	fi
+	if mounted; then
+		umount -l "$mp" || true
+	fi
+	local i
+	for i in $(seq 1 25); do
+		if ! mounted; then
+			return 0
+		fi
+		sleep 0.2
+	done
+	mounted && return 1
+	return 0
 }
 
 case "$cmd" in
 pre)
-	mkdir -p "$mp" "${HOME}/.cache/rclone" "${HOME}/.local/state/google-drive-mount"
+	mkdir -p "${HOME}/.cache/rclone" "${HOME}/.local/state/google-drive-mount"
 	if mounted; then
-		if ls -A "$mp" >/dev/null 2>&1; then
-			exit 0
-		fi
-		release || true
+		release
 	fi
+	mkdir -p "$mp"
 	if find "$mp" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
 		printf 'Refusing to mount over local files in %s\n' "$mp" >&2
 		exit "$refuse_local_files"

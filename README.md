@@ -75,22 +75,14 @@ Sign in to Google Drive once before you enable `google-drive.service`. The token
 rclone config create gdrive drive scope=drive config_is_local=true config_shared_client_id=true
 ```
 
-Approve rclone in the browser. Then add a `gdrive-shared` section with the same `token` line, `shared_with_me = true`, and a combine remote named `google`:
-
-```
-[google]
-type = combine
-upstreams = "My Drive=gdrive:" "Shared with me=gdrive-shared:"
-```
-
-Enable the mount after those sections exist:
+Approve rclone in the browser. Then enable the mount:
 
 ```
 systemctl --user daemon-reload
 systemctl --user enable --now google-drive.service
 ```
 
-`google-drive-mount` mounts `google:` read-only at `~/GoogleDrive`. Opening a file downloads that file into `~/.cache/rclone`, trimmed toward 2G. If `~/GoogleDrive` already contains local files while the service is stopped, the next start exits 78 and leaves those files in place. Move them out, then start the service again.
+`google-drive-mount` mounts My Drive (`gdrive:`) read-only at `~/GoogleDrive`. Opening a file downloads that file into `~/.cache/rclone`, trimmed toward 2G. If `~/GoogleDrive` already contains local files while the service is stopped, the next start exits 78 and leaves those files in place. Move them out, then start the service again.
 
 Add the Nautilus bookmark if it is missing:
 
@@ -137,5 +129,5 @@ Blip still needs `blip-setup` on this host (Mac SSH and `~/.config/blip/bridge.c
 - Default agent is `muse`. Default dictation backend is `voxtype` (SUPER+CTRL+X toggle and F9 push-to-talk kept from before the new defaults).
 - Steam games hold idle off for the game window's life; closing the main Steam window quits the client unless a game is running.
 - Bluetooth: `bose-a2dp-retry` reconnects headsets when BlueZ 5.87's first A2DP connection fails with device-busy.
-- Google Drive: `google-drive.service` mounts `~/GoogleDrive` read-only. Files download when opened. The rclone token is not in this tree.
+- Google Drive: `google-drive.service` mounts My Drive read-only at `~/GoogleDrive`. Files download when opened. The rclone token is not in this tree.
 - Extra packages: clang/LLVM/CMake/Ninja toolchain, draw.io, grok-bot, Hermes, Kdenlive, lazydocker, 32-bit Intel Vulkan (Steam), OBS Studio, owe-lockfeed, Proton VPN CLI, rclone, Spotify, Steam, Tailscale, Telegram, voxtype, Xournal++.

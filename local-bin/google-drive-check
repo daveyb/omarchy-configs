@@ -18,12 +18,9 @@ name_list() {
 	fi
 }
 
-cmp -s <(name_list api "google:My Drive") <(name_list mount "$mp/My Drive") \
-	|| fail "My Drive names differ"
-cmp -s <(name_list api "google:Shared with me") <(name_list mount "$mp/Shared with me") \
-	|| fail "Shared with me names differ"
-my_api="$(name_list api "google:My Drive" | wc -l)"
-shared_api="$(name_list api "google:Shared with me" | wc -l)"
+cmp -s <(name_list api "gdrive:") <(name_list mount "$mp") \
+	|| fail "Drive names differ"
+drive_api="$(name_list api "gdrive:" | wc -l)"
 
 python3 - "$mp" << 'PY'
 import hashlib, json, subprocess, sys
@@ -62,7 +59,7 @@ if choice is None:
     sys.exit("FAIL no regular file under 1MB in My Drive to read back")
 
 size, rel = choice
-local = mount / "My Drive" / rel
+local = mount / rel
 data = local.read_bytes()
 if len(data) != size:
     sys.exit(f"FAIL read {len(data)} bytes, Drive reports {size}")
@@ -84,5 +81,5 @@ fi
 cap=$((2 * 1024 * 1024 * 1024 + 64 * 1024 * 1024))
 [[ "$cache_bytes" -lt "$cap" ]] || fail "rclone cache is ${cache_bytes} bytes, over the 2G cap"
 
-printf 'OK fstype=%s my_drive=%s shared=%s cache_bytes=%s\n' \
-	"$fstype" "$my_api" "$shared_api" "$cache_bytes"
+printf 'OK fstype=%s drive=%s cache_bytes=%s\n' \
+	"$fstype" "$drive_api" "$cache_bytes"
