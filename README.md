@@ -101,7 +101,7 @@ grep -qxF "$bookmark" ~/.config/gtk-3.0/bookmarks || printf '%s\n' "$bookmark" >
 
 Run `google-drive-check` after the mount is up. It compares the folder names with Drive and reads one small file.
 
-Lid close follows the stock suspend path. `lid-awake.service` holds a `handle-lid-switch` block inhibitor while an external monitor is connected or Pocket Casts is playing, and the Hyprland lid binds run `lid-awake.sh` for lock/clamshell handling (dark panel while audio plays).
+Lid close follows the stock suspend path. `lid-awake.service` holds a `handle-lid-switch` block inhibitor while an external monitor is connected or audio is playing, and the Hyprland lid binds run `lid-awake.sh` for lock/clamshell handling (dark panel while audio plays).
 
 The lid/hibernate drop-in sources still live in `~/.config/omarchy/system/` but are no longer installed in `/etc` on this host. Installing them would switch lid close back to hibernate:
 
@@ -130,7 +130,7 @@ Blip still needs `blip-setup` on this host (Mac SSH and `~/.config/blip/bridge.c
 - Caps Lock is a normal toggle on external keyboards. The laptop key stays Compose.
 - Keyboard repeat is 25/400. Touchpad scroll factor is 0.5.
 - Monitors: laptop at 1.25x. The Apple Studio Display is the sole screen at highres 1x while connected (`studio-display-only.sh` turns the laptop panel off once the display shows a picture). Unplug restores 1.25x on the remaining display. HP E243 sits above the laptop. XREAL One Pro is 1.6x with the laptop panel off while the glasses are connected (it defers while studio-only owns the panel).
-- Lid close follows the stock suspend path. `lid-awake` holds a lid-switch inhibitor while an external display is connected or Pocket Casts (Chromium PWA) is playing, with 15s tails against connector blips. A playback lid-close darkens the panel instead of locking so audio keeps playing.
+- Lid close follows the stock suspend path. `lid-awake` holds a lid-switch inhibitor while an external display is connected or audio is playing, with 15s tails against connector blips. A playback lid-close darkens the panel instead of locking so audio keeps playing.
 - The hibernate drop-in sources in `omarchy/system/` are retained but no longer installed in `/etc`: no logind hibernate policy, S4 wake policy, or initramfs panel-off on this host.
 - Bar: `ddd d MMM h:mm AP` clock with a life-expectancy countdown, indicators plus elsewhen/weather/system-update in centerBegin/centerEnd, tray and keyboard-layout first on the right, then Trackpad Plus, Blip, Tailscale, agents, bluetooth, network, OmaProton VPN, audio, monitor, power.
 - Hymission overview service is enabled. 4-finger horizontal swipes switch workspaces and 4-finger vertical toggles the overview in `hypr/input.lua`.

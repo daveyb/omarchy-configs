@@ -4,7 +4,7 @@
 # The monitor tail exists so a USB-C connector blip does not suspend a closed laptop.
 REASON_ROWS=(
   'monitor|tail|15|probe_monitor|stock|external monitor connected'
-  'playback|tail|15|probe_playback|playback-dark|Pocket Casts playing'
+  'playback|tail|15|probe_playback|playback-dark|audio playing'
 )
 
 declare -A snap
@@ -31,51 +31,40 @@ probe_monitor() {
   fi
 }
 
-probe_playback() {
-  local POCKET_CASTS_CLASS json pids pid status found
-  # inhibitingIdle is not the signal. It drops while the episode is still
-  # audible, and a lid close in that gap suspends the machine and kills the
-  # headphones. The window plus Playing, or a live Chromium stream, is enough.
-  POCKET_CASTS_CLASS="chrome-hfnokkdjmiboehpmnkgkkodpkdmigcek-Default"
-  json=$(hyprctl clients -j 2>/dev/null) || {
-    printf '0\n'
-    return 0
-  }
-  pids=$(jq -r --arg class "$POCKET_CASTS_CLASS" '
-    [ .[] | select(.class == $class) | .pid ] | unique | .[]
-  ' <<<"$json" 2>/dev/null) || {
-    printf '0\n'
-    return 0
-  }
-  if [[ -z ${pids//[[:space:]]/} ]]; then
-    printf '0\n'
-    return 0
-  fi
-  found=0
-  while IFS= read -r pid; do
-    [[ $pid =~ ^[0-9]+$ ]] || continue
-    status=$(busctl --user get-property \
-      "org.mpris.MediaPlayer2.chromium.instance${pid}" \
-      /org/mpris/MediaPlayer2 \
-      org.mpris.MediaPlayer2.Player \
-      PlaybackStatus 2>/dev/null) || status=""
-    status=${status//$'\r'/}
-    status="${status#"${status%%[![:space:]]*}"}"
-    status="${status%"${status##*[![:space:]]}"}"
-    if [[ $status == 's "Playing"' ]]; then
-      found=1
-      break
+parse_audible_streams() {
+  jq -r '
+    if type == "array" then
+      .[]
+      | select(.corked | type == "boolean")
+      | if .corked == false then "1" else "0" end
+    else
+      empty
+    end
+  ' 2>/dev/null || true
+}
+
+streams_any_live() {
+  local line live=0
+  while IFS= read -r line || [[ -n $line ]]; do
+    if [[ $line == "1" ]]; then
+      live=1
     fi
-  done <<<"$pids"
-  if (( ! found )) && pactl -f json list sink-inputs 2>/dev/null \
-      | jq -e 'any(.[]; .properties["application.name"] == "Chromium" and .corked == false)' >/dev/null; then
-    found=1
-  fi
-  if (( found )); then
+  done
+  if (( live )); then
     printf '1\n'
   else
     printf '0\n'
   fi
+  return 0
+}
+
+probe_playback() {
+  local json
+  json=$(pactl -f json list sink-inputs 2>/dev/null) || json='[]'
+  if [[ -z $json ]]; then
+    json='[]'
+  fi
+  printf '%s\n' "$json" | parse_audible_streams | streams_any_live
   return 0
 }
 
