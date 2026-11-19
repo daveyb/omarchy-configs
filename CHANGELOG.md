@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-18
+
+### Changed
+
+- `probe_playback` in `hypr/scripts/lid-awake.sh` treats any playing audio as
+  a stay-awake reason. A sink-input counts when `corked` is the boolean
+  false. Corked streams, a non-boolean `corked`, an empty list, and a pactl
+  failure do not count. The inhibitor why string is `audio playing`.
+
 ## [1.1.1] - 2026-11-15
 
 ### Added

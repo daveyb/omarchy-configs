@@ -1,5 +1,5 @@
 [Unit]
-Description=Stay awake on lid close while an external monitor is connected or Pocket Casts is playing
+Description=Stay awake on lid close while an external monitor is connected or audio is playing
 After=graphical-session.target
 PartOf=graphical-session.target
 
